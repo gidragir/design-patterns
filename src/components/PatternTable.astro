@@ -1,0 +1,54 @@
+---
+import { getCollection } from "astro:content";
+
+const docs = await getCollection("docs");
+const patterns = docs.filter((entry) => entry.id.startsWith("patterns/"));
+
+patterns.sort((a, b) => a.data.title.localeCompare(b.data.title));
+---
+
+<div class="pattern-table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Описание</th>
+                <th>Применение</th>
+            </tr>
+        </thead>
+        <tbody>
+            {
+                patterns.map((pattern) => (
+                    <tr>
+                        <td>
+                            <a href={`/${pattern.id}/`}>{pattern.data.title}</a>
+                        </td>
+                        <td>{pattern.data.description || ""}</td>
+                        <td>{(pattern.data as any).use_key || ""}</td>
+                    </tr>
+                ))
+            }
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .pattern-table-container {
+        overflow-x: auto;
+        margin-top: 2rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    table th,
+    table td {
+        padding: 0.5rem;
+        border: 1px solid var(--sl-color-hairline);
+    }
+    table th {
+        background: var(--sl-color-bg-nav);
+        font-weight: 600;
+        text-align: left;
+    }
+</style>
