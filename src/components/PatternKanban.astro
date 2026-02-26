@@ -15,62 +15,7 @@ const i18nPath = path.join(
 );
 const i18n = JSON.parse(fs.readFileSync(i18nPath, "utf8"));
 
-const patternDir = path.join(process.cwd(), "PATTERN");
-const patternFiles = fs.readdirSync(patternDir);
-
-// Simple frontmatter parser
-function getFrontmatter(content) {
-    const fm = {};
-    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-    if (!match) return fm;
-
-    match[1].split("\n").forEach((line) => {
-        const [key, ...val] = line.split(":");
-        if (key && val.length) {
-            fm[key.trim()] = val
-                .join(":")
-                .trim()
-                .replace(/^"(.*)"$/, "$1");
-        }
-    });
-    return fm;
-}
-
-// Mapping from pattern name to its type's eng_name
-const patternToType = new Map();
-const typeNames = new Map(); // Russian name -> English name
-
-// First pass: register types
-patternFiles
-    .filter((f) => f.startsWith("1. "))
-    .forEach((file) => {
-        const content = fs.readFileSync(path.join(patternDir, file), "utf8");
-        const data = getFrontmatter(content);
-        if (data.name && data.eng_name) {
-            // Normalize "Creational patterns" -> "creational"
-            typeNames.set(
-                data.name,
-                data.eng_name.toLowerCase().replace(" patterns", ""),
-            );
-        }
-    });
-
-// Second pass: map patterns to types
-patternFiles
-    .filter((f) => f.startsWith("2. "))
-    .forEach((file) => {
-        const content = fs.readFileSync(path.join(patternDir, file), "utf8");
-        const data = getFrontmatter(content);
-        const connections = data.connections || data.connetions || "";
-        const typeMatch = connections.match(/\[\[1\. (.*?)\]\]/);
-        if (typeMatch && typeMatch[1]) {
-            const typeRuName = typeMatch[1];
-            const typeEngName = typeNames.get(typeRuName);
-            if (typeEngName) {
-                patternToType.set(data.name, typeEngName);
-            }
-        }
-    });
+// No need for custom parsing. Frontmatter pattern_type is natively supported.
 
 const patterns = (
     await getCollection("docs", ({ id }) => {
@@ -121,13 +66,7 @@ const pattern_types = (
 // Group patterns by their type
 const groupedPatterns = pattern_types.map((type) => {
     const typePatterns = patterns.filter((pattern) => {
-        const patternSlug =
-            pattern.id.split("/").pop()?.replace(".mdx", "") || "";
-        // Match by title or name from PATTERN
-        return (
-            patternToType.get(pattern.data.title) === type.id ||
-            patternToType.get(i18n[`patterns.${patternSlug}.title`]) === type.id
-        );
+        return pattern.data.pattern_type === type.id;
     });
 
     return {
