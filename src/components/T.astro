@@ -1,0 +1,14 @@
+---
+import { getEntry } from "astro:content";
+
+interface Props {
+    key: string;
+}
+
+const { key } = Astro.props;
+const locale = Astro.currentLocale || "ru";
+const entry = await getEntry("i18n", locale);
+const translation = entry?.data[key] || key;
+---
+
+{translation}

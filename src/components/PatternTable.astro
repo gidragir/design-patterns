@@ -1,32 +1,39 @@
 ---
 import { getCollection } from "astro:content";
 
-const docs = await getCollection("docs");
-const patterns = docs.filter((entry) => entry.id.startsWith("patterns/"));
+const locale = Astro.currentLocale || "ru";
+const docs = await getCollection("docs", ({ id }) => {
+    return id.startsWith(`${locale}/patterns/`);
+});
 
-patterns.sort((a, b) => a.data.title.localeCompare(b.data.title));
+const patterns = docs.sort((a, b) => a.data.title.localeCompare(b.data.title));
 ---
 
 <div class="pattern-table-container">
     <table>
         <thead>
             <tr>
-                <th>Название</th>
-                <th>Описание</th>
-                <th>Применение</th>
+                <th>{locale === "ru" ? "Название" : "Title"}</th>
+                <th>{locale === "ru" ? "Описание" : "Description"}</th>
+                <th>{locale === "ru" ? "Применение" : "Usage"}</th>
             </tr>
         </thead>
         <tbody>
             {
-                patterns.map((pattern) => (
-                    <tr>
-                        <td>
-                            <a href={`/${pattern.id}/`}>{pattern.data.title}</a>
-                        </td>
-                        <td>{pattern.data.description || ""}</td>
-                        <td>{(pattern.data as any).use_key || ""}</td>
-                    </tr>
-                ))
+                patterns.map((pattern) => {
+                    const slug = pattern.id
+                        .replace(/\.(md|mdx)$/, "")
+                        .toLowerCase();
+                    return (
+                        <tr>
+                            <td>
+                                <a href={`/${slug}/`}>{pattern.data.title}</a>
+                            </td>
+                            <td>{pattern.data.description || ""}</td>
+                            <td>{(pattern.data as any).use_key || ""}</td>
+                        </tr>
+                    );
+                })
             }
         </tbody>
     </table>
