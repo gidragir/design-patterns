@@ -1,0 +1,208 @@
+---
+import { getCollection } from "astro:content";
+import fs from "node:fs";
+import path from "node:path";
+
+const locale = Astro.currentLocale || "ru";
+
+// Get i18n data for titles and descriptions
+const i18nPath = path.join(
+    process.cwd(),
+    "src",
+    "content",
+    "i18n",
+    `${locale}.json`,
+);
+const i18n = JSON.parse(fs.readFileSync(i18nPath, "utf8"));
+
+const patternDir = path.join(process.cwd(), "PATTERN");
+const patternFiles = fs.readdirSync(patternDir);
+
+// Simple frontmatter parser
+function getFrontmatter(content) {
+    const fm = {};
+    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!match) return fm;
+
+    match[1].split("\n").forEach((line) => {
+        const [key, ...val] = line.split(":");
+        if (key && val.length) {
+            fm[key.trim()] = val
+                .join(":")
+                .trim()
+                .replace(/^"(.*)"$/, "$1");
+        }
+    });
+    return fm;
+}
+
+// Mapping from pattern name to its type's eng_name
+const patternToType = new Map();
+const typeNames = new Map(); // Russian name -> English name
+
+// First pass: register types
+patternFiles
+    .filter((f) => f.startsWith("1. "))
+    .forEach((file) => {
+        const content = fs.readFileSync(path.join(patternDir, file), "utf8");
+        const data = getFrontmatter(content);
+        if (data.name && data.eng_name) {
+            // Normalize "Creational patterns" -> "creational"
+            typeNames.set(
+                data.name,
+                data.eng_name.toLowerCase().replace(" patterns", ""),
+            );
+        }
+    });
+
+// Second pass: map patterns to types
+patternFiles
+    .filter((f) => f.startsWith("2. "))
+    .forEach((file) => {
+        const content = fs.readFileSync(path.join(patternDir, file), "utf8");
+        const data = getFrontmatter(content);
+        const connections = data.connections || data.connetions || "";
+        const typeMatch = connections.match(/\[\[1\. (.*?)\]\]/);
+        if (typeMatch && typeMatch[1]) {
+            const typeRuName = typeMatch[1];
+            const typeEngName = typeNames.get(typeRuName);
+            if (typeEngName) {
+                patternToType.set(data.name, typeEngName);
+            }
+        }
+    });
+
+const patterns = (
+    await getCollection("docs", ({ id }) => {
+        return id.startsWith(`${locale}/patterns/`);
+    })
+).sort((a, b) => {
+    const aSlug = a.id.split("/").pop()?.replace(".mdx", "") || "";
+    const bSlug = b.id.split("/").pop()?.replace(".mdx", "") || "";
+    const aTitle = i18n[`patterns.${aSlug}.title`] || a.data.title;
+    const bTitle = i18n[`patterns.${bSlug}.title`] || b.data.title;
+    return aTitle.localeCompare(bTitle);
+});
+
+const pattern_types = (
+    await getCollection("docs", ({ id }) => {
+        return id.startsWith(`${locale}/pattern_types/`);
+    })
+)
+    .map((type) => {
+        const id = type.id.split("/").pop()?.replace(".md", "") || "";
+        let title = type.data.title;
+
+        if (id === "creational") {
+            title = "Порождающие";
+        } else if (id === "structural") {
+            title = "Структурные";
+        } else if (id === "behavioral") {
+            title = "Поведенческие";
+        } else if (id === "architectural") {
+            title = "Архитектурные";
+        } else if (id === "concurrency") {
+            title = "Параллельные";
+        }
+
+        return { ...type, id, title };
+    })
+    .sort((a, b) => {
+        const order = [
+            "creational",
+            "structural",
+            "behavioral",
+            "architectural",
+            "concurrency",
+        ];
+        return order.indexOf(a.id) - order.indexOf(b.id);
+    });
+
+// Group patterns by their type
+const groupedPatterns = pattern_types.map((type) => {
+    const typePatterns = patterns.filter((pattern) => {
+        const patternSlug =
+            pattern.id.split("/").pop()?.replace(".mdx", "") || "";
+        // Match by title or name from PATTERN
+        return (
+            patternToType.get(pattern.data.title) === type.id ||
+            patternToType.get(i18n[`patterns.${patternSlug}.title`]) === type.id
+        );
+    });
+
+    return {
+        ...type,
+        patterns: typePatterns.map((p) => {
+            const pSlug = p.id.split("/").pop()?.replace(".mdx", "") || "";
+            return {
+                title: i18n[`patterns.${pSlug}.title`] || p.data.title,
+                description:
+                    (
+                        i18n[`patterns.${pSlug}.definition`] ||
+                        p.data.description ||
+                        ""
+                    ).split(".")[0] + ".",
+                slug: pSlug,
+            };
+        }),
+    };
+});
+---
+
+<div
+    class="flex flex-col md:flex-row gap-6 overflow-x-auto pb-4 items-stretch kanban-container"
+>
+    {
+        groupedPatterns.map((category) => (
+            <div class="flex-1 min-w-[210px] bg-slate-50 rounded-2xl p-4 flex flex-col items-center gap-4 border border-slate-200/60 shadow-sm m-0">
+                <div class="flex items-center justify-between w-full px-1 mb-1">
+                    <h2 class="font-bold text-slate-800 tracking-tight m-0 text-base">
+                        {category.title}
+                    </h2>
+                    <span class="bg-white text-slate-500 text-[10px] py-0.5 px-1.5 rounded-full font-bold shadow-sm border border-slate-100 uppercase tracking-wider">
+                        {category.patterns.length}
+                    </span>
+                </div>
+                <div class="flex flex-col gap-3 overflow-y-auto pr-1 kanban-scroll pb-2 w-full items-center max-h-[70vh]">
+                    {category.patterns.map((pattern) => (
+                        <a
+                            href={`/${locale}/patterns/${pattern.slug}`}
+                            class="bg-white p-2 px-3 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.02)] border border-slate-200 hover:shadow-md hover:border-brand-400/50 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group flex flex-col justify-center items-center gap-1.5 no-underline h-[60px] w-[185px] text-center"
+                        >
+                            <h3 class="font-bold text-slate-800 group-hover:text-brand-600 transition-colors m-0 text-sm line-clamp-2">
+                                {pattern.title}
+                            </h3>
+                        </a>
+                    ))}
+                </div>
+            </div>
+        ))
+    }
+</div>
+
+<style>
+    .kanban-container {
+        scrollbar-width: thin;
+        scrollbar-color: #e2e8f0 transparent;
+    }
+    .kanban-container::-webkit-scrollbar {
+        height: 6px;
+    }
+    .kanban-container::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+    }
+    .kanban-scroll::-webkit-scrollbar {
+        width: 4px;
+    }
+    .kanban-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .kanban-scroll::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+    }
+    .kanban-scroll::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
+    }
+</style>
