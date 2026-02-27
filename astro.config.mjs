@@ -10,6 +10,8 @@ import { remarkPatternTemplate } from './src/plugins/remark-pattern-template.mjs
 
 // https://astro.build/config
 export default defineConfig({
+    site: "https://gidragir.github.io",
+    base: "design-patterns",
     integrations: [
         starlight({
             title: 'Паттерны проектирования',
