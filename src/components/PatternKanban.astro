@@ -105,7 +105,7 @@ const groupedPatterns = pattern_types.map((type) => {
                 <div class="flex flex-col gap-3 overflow-y-auto pr-1 kanban-scroll pb-2 w-full items-center max-h-[70vh]">
                     {category.patterns.map((pattern) => (
                         <a
-                            href={`/${locale}/patterns/${pattern.slug}`}
+                            href={`${import.meta.env.BASE_URL}${locale}/patterns/${pattern.slug}/`}
                             class="bg-white p-2 px-3 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.02)] border border-slate-200 hover:shadow-md hover:border-brand-400/50 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group flex flex-col justify-center items-center gap-1.5 no-underline h-[60px] w-[185px] text-center"
                         >
                             <h3 class="font-bold text-slate-800 group-hover:text-brand-600 transition-colors m-0 text-sm line-clamp-2">

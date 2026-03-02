@@ -27,7 +27,9 @@ const patterns = docs.sort((a, b) => a.data.title.localeCompare(b.data.title));
                     return (
                         <tr>
                             <td>
-                                <a href={`/${slug}/`}>{pattern.data.title}</a>
+                                <a href={`${import.meta.env.BASE_URL}${slug}/`}>
+                                    {pattern.data.title}
+                                </a>
                             </td>
                             <td>{pattern.data.description || ""}</td>
                             <td>{(pattern.data as any).use_key || ""}</td>
